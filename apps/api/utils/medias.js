@@ -9,7 +9,12 @@
 const imagemin                    = require('imagemin');
 const imageminGifsicle            = require('imagemin-gifsicle');
 const imageminJpegtran            = require('imagemin-jpegtran');
-const imageminMozjpeg             = require('imagemin-mozjpeg');
+let imageminMozjpeg;
+try {
+    imageminMozjpeg = require('imagemin-mozjpeg');
+} catch (e) {
+    // Optional dependency - not critical if missing
+}
 const {default: imageminPngquant} = require('imagemin-pngquant');
 const imageminSvgo                = require('imagemin-svgo');
 const path                        = require('path');
@@ -29,15 +34,18 @@ const compressImg = async (pathIn, pathOut, filename, quality = 80) => {
 
     try {
         // We remove the extension, we let imagemin check if the extension matches well
+        const plugins = [
+            imageminGifsicle(),
+            imageminJpegtran({progressive: false}),
+            imageminPngquant({quality: [(quality - 10) / 100, (quality + 10) / 100], speed: 1, strip: true}),
+            imageminSvgo()
+        ];
+        if (imageminMozjpeg) {
+            plugins.splice(2, 0, imageminMozjpeg({quality, progressive: false}));
+        }
         const files = await imagemin([`${filePathIn}.{jpg,JPG,jpeg,JPEG,png,PNG,svg,SVG,gif,GIF}`], {
             destination : pathOut,
-            plugins     : [
-                imageminGifsicle(),
-                imageminJpegtran({progressive: false}),
-                imageminMozjpeg({quality, progressive: false}),
-                imageminPngquant({quality: [(quality - 10) / 100, (quality + 10) / 100], speed: 1, strip: true}),
-                imageminSvgo()
-            ]
+            plugins
         });
         let pathToReturn;
         if (files.length) {

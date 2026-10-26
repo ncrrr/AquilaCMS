@@ -14,10 +14,17 @@ const logger   = require('./logger');
 let connection = false;
 
 const mongooseOptions = {
-    useNewUrlParser    : true,
-    useFindAndModify   : false,
-    useCreateIndex     : true,
-    useUnifiedTopology : true
+    useNewUrlParser      : true,
+    useFindAndModify     : false,
+    useCreateIndex       : true,
+    useUnifiedTopology   : true,
+    serverSelectionTimeoutMS : 30000,  // Give server 30s to be discovered
+    socketTimeoutMS      : 60000,      // Socket timeout for long operations
+    bufferMaxEntries     : 0,          // Fail fast if no connection (don't buffer)
+    maxPoolSize          : 10,
+    retryWrites          : true,
+    maxConnecting        : 10,
+    connectTimeoutMS     : 30000
 };
 
 const connect = async () => {
@@ -32,33 +39,47 @@ const connect = async () => {
 
     const isConnected = connectedState.indexOf(mongoose.connection.readyState) !== -1;
     if (!isConnected && !connection) {
-        const checkConnect = async () => new Promise((resolve, reject) => {
-            mongoose.connect(global.aquila.envFile.db, mongooseOptions, (error) => {
-                if (typeof error === 'undefined' || error === null) {
-                    connection = true;
-                    resolve(true);
-                } else {
-                    reject(new Error(`Unable to connect to" ${global.aquila.envFile.db}, ${error.toString()}`));
+        const maxRetries = 3;
+        let attempt = 0;
+        let lastError;
+
+        while (attempt < maxRetries) {
+            try {
+                await mongoose.connect(global.aquila.envFile.db, mongooseOptions);
+                connection = true;
+                logger.info(`Connected to MongoDB on attempt ${attempt + 1}`);
+                break;
+            } catch (error) {
+                attempt++;
+                lastError = error;
+                logger.warn(`MongoDB connection attempt ${attempt} failed: ${error.message}`);
+                if (attempt < maxRetries) {
+                    const backoffMs = 1000 * attempt; // 1s, 2s, 3s
+                    logger.info(`Retrying in ${backoffMs}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, backoffMs));
                 }
-            });
-        });
-        await checkConnect();
+            }
+        }
+
+        if (!connection) {
+            throw new Error(`Unable to connect to MongoDB at ${global.aquila.envFile.db} after ${maxRetries} attempts: ${lastError?.message}`);
+        }
+
         mongoose.set('objectIdGetter', false);
     }
     mongoose.plugin(require('../orm/plugins/generateID'));
     return mongoose;
 };
 
-const testdb = async (uriDatabase) => new Promise((resolve, reject) => {
-    mongoose.connection.close(); // need to reset the connection mongo for every try
-    mongoose.connect(uriDatabase, mongooseOptions, (error) => {
-        if (typeof error === 'undefined' || error === null) {
-            resolve(true);
-        } else {
-            reject(new Error(`Unable to connect to" ${uriDatabase}, ${error.toString()}`));
-        }
-    });
-});
+const testdb = async (uriDatabase) => {
+    try {
+        mongoose.connection.close();
+        await mongoose.connect(uriDatabase, mongooseOptions);
+        return true;
+    } catch (error) {
+        throw new Error(`Unable to connect to ${uriDatabase}: ${error.message}`);
+    }
+};
 
 /**
  * check if the database is a replicaSet, if we can use transactions

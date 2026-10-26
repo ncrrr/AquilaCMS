@@ -7,7 +7,7 @@
  */
 
 const path         = require('path');
-const spdy         = require('spdy');
+const http2        = require('http2');
 const mongoose     = require('mongoose');
 const {v4: uuidv4} = require('uuid');
 const {outside}    = require('semver');
@@ -191,13 +191,9 @@ const startListening = async (server) => {
             throw new Error('SSL Error - Path to cert or key file are invalid');
         }
         try {
-            spdy.createServer({
+            http2.createSecureServer({
                 key  : await fs.readFile(path.resolve(global.aquila.appRoot, global.aquila.envFile.ssl.key)),
-                cert : await fs.readFile(path.resolve(global.aquila.appRoot, global.aquila.envFile.ssl.cert)),
-                spdy : {
-                    protocols : ['h2', 'http/1.1'],
-                    plain     : false
-                }
+                cert : await fs.readFile(path.resolve(global.aquila.appRoot, global.aquila.envFile.ssl.cert))
             }, server).listen(global.aquila.port, (err) => {
                 if (err) throw err;
                 global.aquila.isServerSecure = true;

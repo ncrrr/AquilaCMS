@@ -31,7 +31,6 @@
     "imagemin": "7.0.1",
     "imagemin-gifsicle": "7.0.0",
     "imagemin-jpegtran": "7.0.0",
-    "imagemin-mozjpeg": "9.0.0",
     "imagemin-pngquant": "9.0.2",
     "imagemin-svgo": "9.0.0",
     "js2xmlparser": "^5.0.0",
@@ -57,7 +56,6 @@
     "semver": "^7.3.8",
     "sharp": "0.31.3",
     "showdown": "^2.0.3",
-    "spdy": "4.0.2",
     "swagger-ui-express-updated": "^4.1.8",
     "uuid": "9.0.0",
     "winston": "3.8.2",
@@ -80,6 +78,9 @@
     "lint-staged": "^13.1.1",
     "mocha": "^10.2.0",
     "nyc": "^15.1.0"
+  },
+  "optionalDependencies": {
+    "imagemin-mozjpeg": "10.0.0"
   },
   "lint-staged": {
     "*.{ts,js,jsx,tsx}": "eslint --fix"
